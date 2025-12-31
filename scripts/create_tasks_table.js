@@ -12,7 +12,7 @@ async function createTasksTable() {
       startTaskAt DATETIME NULL,
       endTaskAt DATETIME NULL,
 
-      status ENUM('pending','completed') DEFAULT 'pending',
+      status ENUM('to_do','pending','completed','canceled') DEFAULT 'to_do',
 
       version INT DEFAULT 1,
       is_deleted BOOLEAN DEFAULT 0,

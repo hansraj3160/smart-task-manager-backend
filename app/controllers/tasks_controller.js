@@ -1,3 +1,27 @@
+// GET /tasks/summary
+const getTaskSummary = async (req, res) => {
+  try {
+    const userId = req.user && req.user.id;
+    // Count tasks by status for this user
+    const [rows] = await db.query(
+      `SELECT status, COUNT(*) as count FROM tasks WHERE user_id = ? AND is_deleted = 0 GROUP BY status`,
+      [userId]
+    );
+    // Build summary object with all statuses
+    const summary = { to_do: 0, pending: 0, completed: 0, canceled: 0 };
+    for (const row of rows) {
+      const key = row.status && row.status.toLowerCase();
+      if (key === 'to do' || key === 'todo') summary.to_do += row.count;
+      else if (key === 'pending') summary.pending += row.count;
+      else if (key === 'completed') summary.completed += row.count;
+      else if (key === 'canceled' || key === 'cancelled') summary.canceled += row.count;
+    }
+    res.json({ summary });
+  } catch (err) {
+    res.status(500).json({ message: 'Database error', error: err.message });
+  }
+};
+
 const { randomUUID } = require('crypto');
 const db = require('../config/db');
 
@@ -126,23 +150,28 @@ const deleteTask = async (req, res) => {
   }
 };
 
-// PATCH /tasks/:id/status
+// PATCH /tasks/:id/status/:action
+// action: 1 = pending->completed, 2 = pending->canceled
 const updateTaskStatus = async (req, res) => {
   try {
     const userId = req.user && req.user.id;
     const taskId = req.params.id;
-    // Only allow status change from 'pending' to 'completed'
+    const action = req.params.action;
     const [rows] = await db.query('SELECT user_id, status FROM tasks WHERE id = ? AND is_deleted = 0', [taskId]);
     if (!rows || rows.length === 0) return res.status(404).json({ message: 'Task not found' });
     const task = rows[0];
     if (task.user_id !== userId) return res.status(403).json({ message: 'Forbidden' });
-    if (task.status !== 'pending') return res.status(400).json({ message: 'Only pending tasks can be completed' });
-    await db.query('UPDATE tasks SET status = ?, version = version + 1 WHERE id = ?', ['completed', taskId]);
+    if (task.status !== 'pending') return res.status(400).json({ message: 'Only pending tasks can be updated' });
+    let newStatus;
+    if (action === '1') newStatus = 'completed';
+    else if (action === '2') newStatus = 'canceled';
+    else return res.status(400).json({ message: 'Invalid action. Use 1 for completed, 2 for canceled.' });
+    await db.query('UPDATE tasks SET status = ?, version = version + 1 WHERE id = ?', [newStatus, taskId]);
     const [updated] = await db.query('SELECT id, user_id, title, description, status, version, is_deleted, startTaskAt, endTaskAt, created_at, updated_at FROM tasks WHERE id = ?', [taskId]);
-    res.json({ message: 'Task status updated to completed', task: updated[0] });
+    res.json({ message: `Task status updated to ${newStatus}`, task: updated[0] });
   } catch (err) {
     res.status(500).json({ message: 'Database error', error: err.message });
   }
 };
 
-module.exports = { getTasks, createTask, updateTask, deleteTask, updateTaskStatus };
+module.exports = { getTasks, createTask, updateTask, deleteTask, updateTaskStatus, getTaskSummary };

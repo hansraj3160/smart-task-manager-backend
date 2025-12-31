@@ -11,7 +11,7 @@ const getTaskSummary = async (req, res) => {
     const summary = { to_do: 0, pending: 0, completed: 0, canceled: 0 };
     for (const row of rows) {
       const key = row.status && row.status.toLowerCase();
-      if (key === 'to do' || key === 'todo') summary.to_do += row.count;
+      if (key === 'to_do' || key === 'todo' || key === 'to do') summary.to_do += row.count;
       else if (key === 'pending') summary.pending += row.count;
       else if (key === 'completed') summary.completed += row.count;
       else if (key === 'canceled' || key === 'cancelled') summary.canceled += row.count;
@@ -59,7 +59,7 @@ function combineDateTime(dateStr, timeStr) {
 const createTask = async (req, res) => {
   try {
     const userId = req.user && req.user.id;
-    const { title, description, startTaskAt, startDate, startTime, endTaskAt, endDate, endTime } = req.body || {};
+    const { title, description, startTaskAt, startDate, startTime, endDate, endTime } = req.body || {};
     if (!title) return res.status(400).json({ message: 'Title required' });
 
     // combine separate date/time if provided
@@ -70,8 +70,8 @@ const createTask = async (req, res) => {
       start = combined;
     }
 
-    let end = endTaskAt || null;
-    if (!end && endDate && endTime) {
+    let end = null;
+    if (endDate && endTime) {
       const combinedEnd = combineDateTime(endDate, endTime);
       if (!combinedEnd) return res.status(400).json({ message: 'Invalid endDate/endTime format (expected YYYY-MM-DD and HH:MM or HH:MM:SS)' });
       end = combinedEnd;

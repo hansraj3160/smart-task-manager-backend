@@ -108,10 +108,10 @@ const loginUser = async (req, res) => {
 
         await db.query('UPDATE users SET token_version = ?, refresh_token = ? WHERE id = ?', [newVersion, refreshTokenStr, user.id]);
 
-        const expiresIn = '1h';
+        const expiresIn = '1m';
            const token = jwt.sign({ id: user.id, email: user.email, token_version: newVersion, type: 'access' }, secretKey, { expiresIn });
 
-        const expiresInSeconds = 60 * 60; // 1 hour
+        const expiresInSeconds = 60 * 1; // 1 minute
         const expiresAt = new Date(Date.now() + expiresInSeconds * 1000).toISOString();
 
         const { password: _, refresh_token: __, ...userSafe } = user;

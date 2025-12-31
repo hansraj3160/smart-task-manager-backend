@@ -126,4 +126,23 @@ const deleteTask = async (req, res) => {
   }
 };
 
-module.exports = { getTasks, createTask, updateTask, deleteTask };
+// PATCH /tasks/:id/status
+const updateTaskStatus = async (req, res) => {
+  try {
+    const userId = req.user && req.user.id;
+    const taskId = req.params.id;
+    // Only allow status change from 'pending' to 'completed'
+    const [rows] = await db.query('SELECT user_id, status FROM tasks WHERE id = ? AND is_deleted = 0', [taskId]);
+    if (!rows || rows.length === 0) return res.status(404).json({ message: 'Task not found' });
+    const task = rows[0];
+    if (task.user_id !== userId) return res.status(403).json({ message: 'Forbidden' });
+    if (task.status !== 'pending') return res.status(400).json({ message: 'Only pending tasks can be completed' });
+    await db.query('UPDATE tasks SET status = ?, version = version + 1 WHERE id = ?', ['completed', taskId]);
+    const [updated] = await db.query('SELECT id, user_id, title, description, status, version, is_deleted, startTaskAt, endTaskAt, created_at, updated_at FROM tasks WHERE id = ?', [taskId]);
+    res.json({ message: 'Task status updated to completed', task: updated[0] });
+  } catch (err) {
+    res.status(500).json({ message: 'Database error', error: err.message });
+  }
+};
+
+module.exports = { getTasks, createTask, updateTask, deleteTask, updateTaskStatus };

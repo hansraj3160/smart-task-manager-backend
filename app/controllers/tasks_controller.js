@@ -8,11 +8,11 @@ const getTaskSummary = async (req, res) => {
       [userId]
     );
     // Build summary object with all statuses
-    const summary = { to_do: 0, pending: 0, completed: 0, canceled: 0 };
+    const summary = { pending: 0, processing: 0, completed: 0, canceled: 0 };
     for (const row of rows) {
       const key = row.status && row.status.toLowerCase();
-      if (key === 'to_do' || key === 'todo' || key === 'to do') summary.to_do += row.count;
-      else if (key === 'pending') summary.pending += row.count;
+      if (key === 'pending') summary.pending += row.count;
+      else if (key === 'processing') summary.processing += row.count;
       else if (key === 'completed') summary.completed += row.count;
       else if (key === 'canceled' || key === 'cancelled') summary.canceled += row.count;
     }
@@ -151,7 +151,7 @@ const deleteTask = async (req, res) => {
 };
 
 // PATCH /tasks/:id/status/:action
-// action: 1 = pending->completed, 2 = pending->canceled
+// action: 1 = pending->processing, 2 = processing->completed, 3 = processing->canceled, 4 = pending->canceled
 const updateTaskStatus = async (req, res) => {
   try {
     const userId = req.user && req.user.id;
@@ -161,11 +161,22 @@ const updateTaskStatus = async (req, res) => {
     if (!rows || rows.length === 0) return res.status(404).json({ message: 'Task not found' });
     const task = rows[0];
     if (task.user_id !== userId) return res.status(403).json({ message: 'Forbidden' });
-    if (task.status !== 'pending') return res.status(400).json({ message: 'Only pending tasks can be updated' });
     let newStatus;
-    if (action === '1') newStatus = 'completed';
-    else if (action === '2') newStatus = 'canceled';
-    else return res.status(400).json({ message: 'Invalid action. Use 1 for completed, 2 for canceled.' });
+    if (action === '1') {
+      if (task.status !== 'pending') return res.status(400).json({ message: 'Only pending tasks can be moved to processing' });
+      newStatus = 'processing';
+    } else if (action === '2') {
+      if (task.status !== 'processing') return res.status(400).json({ message: 'Only processing tasks can be completed' });
+      newStatus = 'completed';
+    } else if (action === '3') {
+      if (task.status !== 'processing') return res.status(400).json({ message: 'Only processing tasks can be canceled' });
+      newStatus = 'canceled';
+    } else if (action === '4') {
+      if (task.status !== 'pending') return res.status(400).json({ message: 'Only pending tasks can be canceled' });
+      newStatus = 'canceled';
+    } else {
+      return res.status(400).json({ message: 'Invalid action. Use 1=pending->processing, 2=processing->completed, 3=processing->canceled, 4=pending->canceled.' });
+    }
     await db.query('UPDATE tasks SET status = ?, version = version + 1 WHERE id = ?', [newStatus, taskId]);
     const [updated] = await db.query('SELECT id, user_id, title, description, status, version, is_deleted, startTaskAt, endTaskAt, created_at, updated_at FROM tasks WHERE id = ?', [taskId]);
     res.json({ message: `Task status updated to ${newStatus}`, task: updated[0] });

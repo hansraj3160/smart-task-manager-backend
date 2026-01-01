@@ -2,8 +2,8 @@ const db = require('../app/config/db');
 
 async function alterTasksStatusEnum() {
   try {
-    await db.query(`ALTER TABLE tasks MODIFY status ENUM('to_do','pending','completed','canceled') DEFAULT 'to_do';`);
-    console.log('tasks.status ENUM altered to include to_do, pending, completed, canceled');
+    await db.query(`ALTER TABLE tasks MODIFY status ENUM('pending','processing','completed','canceled') DEFAULT 'pending';`);
+    console.log('tasks.status ENUM altered to only pending, processing, completed, canceled');
     process.exit(0);
   } catch (err) {
     if (err.message && err.message.includes('already')) {
